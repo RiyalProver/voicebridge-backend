@@ -17,7 +17,8 @@ function safeJsonSend(ws, obj) {
 
 const groq = new Groq({ apiKey: GROQ_KEY });
 
-const PORT = process.env.PORT || 8080;
+// Render uses port 10000 by default, so we prioritize that
+const PORT = process.env.PORT || 10000;
 const wss = new WebSocket.Server({ port: PORT });
 console.log(`Server running on port ${PORT}`);
 
@@ -25,8 +26,8 @@ wss.on('connection', (ws) => {
     console.log("Browser connected");
 
     let targetLanguage = "Spanish";
-    let isProcessing   = false;
     let sourceLanguage = "English";
+    let isProcessing   = false;
     let dgConnection   = null;
 
     function langNameToCode(name) {
@@ -64,7 +65,9 @@ wss.on('connection', (ws) => {
 
       dgConnection = conn;
 
-      conn.on('open', () => { console.log(`Deepgram open — start speaking (${langCode})`); });
+      conn.on('open', () => { 
+        console.log(`Deepgram open — listening for ${sourceLanguage} (${langCode})`); 
+      });
 
       conn.on('message', async (message) => {
         let data;
@@ -76,8 +79,7 @@ wss.on('connection', (ws) => {
         if (!transcript || !data.is_final || isProcessing) return;
 
         isProcessing = true;
-        const t0 = nowMs();
-        console.log("Heard:", transcript);
+        console.log(`Heard (${sourceLanguage}):`, transcript);
 
         try {
           const tTranslateStart = nowMs();
@@ -89,18 +91,17 @@ wss.on('connection', (ws) => {
               {
                 role: "system",
                 content:
-                  `You are a pure translation engine. ` +
-                  `Translate the user's message from ${sourceLanguage} into ${targetLanguage}. ` +
-                  `Always return ONLY the translated text in ${targetLanguage}, with no extra words, labels, explanations, or quotes. ` +
-                  `If the user asks a question, DO NOT answer it; just translate the question itself.`
+                  `You are a translator. ` +
+                  `Translate from ${sourceLanguage} into ${targetLanguage}. ` +
+                  `Return ONLY the translated text in ${targetLanguage}. No explanations.`
               },
-              { role: "user",   content: transcript }
+              { role: "user", content: transcript }
             ]
           });
           
           const translated = groqRes.choices?.[0]?.message?.content?.trim?.() || "";
           const tTranslateEnd = nowMs();
-          console.log("Translated:", translated);
+          console.log(`Translated to ${targetLanguage}:`, translated);
 
           safeJsonSend(ws, {
             type: "subtitle",
@@ -127,11 +128,12 @@ wss.on('connection', (ws) => {
             try {
                 const msg = JSON.parse(data.toString());
                 if (msg.type === 'config') {
-                    if (typeof msg.targetLang === "string" && msg.targetLang) {
-                      targetLanguage = msg.targetLang;
-                    }
-                    if (typeof msg.sourceLang === "string" && msg.sourceLang && msg.sourceLang !== sourceLanguage) {
-                      sourceLanguage = msg.sourceLang;
+                    const oldSource = sourceLanguage;
+                    targetLanguage = msg.targetLang || targetLanguage;
+                    sourceLanguage = msg.sourceLang || sourceLanguage;
+                    
+                    // Restart Deepgram only if the user changed the input language
+                    if (sourceLanguage !== oldSource) {
                       openDeepgramStream();
                     }
                 }
