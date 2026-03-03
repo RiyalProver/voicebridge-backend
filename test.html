@@ -263,7 +263,7 @@ startBtn.addEventListener('click', async ()=>{
   updateLabels();
 
   // 🛑 PASTE YOUR RENDER URL HERE (Make sure it starts with wss://) 🛑
-  socket = new WebSocket('wss://your-render-app-url.onrender.com');
+  socket = new WebSocket('wss://voicebridge-backend.onrender.com');
   socket.binaryType='arraybuffer';
 
   socket.onopen=async()=>{
