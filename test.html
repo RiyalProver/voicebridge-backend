@@ -191,7 +191,7 @@ select:hover,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--go
     <div class="wave" id="wave"></div>
   </div>
 
-  <div class="foot">Deepgram · Groq · ElevenLabs</div>
+  <div class="foot">Deepgram · Groq · Native Audio</div>
 </div>
 
 <script>
@@ -217,60 +217,6 @@ const tgtTxt  = document.getElementById('tgtTxt');
 
 let socket, mediaRecorder, active=false;
 
-const utterQueue = [];
-let currentUtter = null;
-let playingUtter = false;
-
-function enqueueChunk(chunk){
-  if(!currentUtter) return;
-  currentUtter.chunks.push(chunk);
-}
-
-function markUtterReady(){
-  if(currentUtter){
-    currentUtter.ready = true;
-    currentUtter = null;
-  }
-  playNextUtter();
-}
-
-function playNextUtter(){
-  if(playingUtter) return;
-  if(!utterQueue.length) return;
-  const next = utterQueue[0];
-  if(!next.ready || !next.chunks.length) return;
-
-  const blob = new Blob(next.chunks, { type: next.mime || 'audio/mpeg' });
-  const url  = URL.createObjectURL(blob);
-  const audio = new Audio(url);
-
-  playingUtter = true;
-  dot.className='dot speak'; stxt.textContent='Speaking…'; wave.classList.add('on');
-
-  audio.onended = () => {
-    URL.revokeObjectURL(url);
-    utterQueue.shift();
-    playingUtter = false;
-    if(utterQueue.length){
-      playNextUtter();
-    } else {
-      wave.classList.remove('on');
-      if(active) {
-        dot.className='dot on'; stxt.textContent='Listening…';
-      } else {
-        dot.className='dot'; stxt.textContent='Session stopped';
-      }
-    }
-  };
-
-  audio.play().catch(err=>{
-    console.error(err);
-    URL.revokeObjectURL(url);
-    utterQueue.shift();
-    playingUtter = false;
-  });
-}
-
 function updateLabels(){ srcLbl.textContent=src.value; tgtLbl.textContent=tgt.value; }
 function sendConfig(){
   if(socket && socket.readyState===WebSocket.OPEN)
@@ -289,7 +235,7 @@ tgt.addEventListener('change',()=>{ updateLabels(); sendConfig(); });
 src.addEventListener('change',()=>{ updateLabels(); });
 
 startBtn.addEventListener('click', async ()=>{
-  // If session is already active, STOP it.
+  // Stop Session
   if(active) {
     active = false;
     startBtn.classList.remove('active');
@@ -301,19 +247,16 @@ startBtn.addEventListener('click', async ()=>{
     if(socket && socket.readyState === WebSocket.OPEN) {
       socket.close();
     }
-    
     if(mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop();
       mediaRecorder.stream.getTracks().forEach(track => track.stop());
     }
     
-    utterQueue.length = 0;
-    currentUtter = null;
-    playingUtter = false;
+    window.speechSynthesis.cancel(); // Stop any currently playing audio
     return;
   }
 
-  // START Session
+  // Start Session
   active=true;
   startBtn.classList.add('active');
   btnTxt.textContent='Stop Translation Session';
@@ -324,7 +267,7 @@ startBtn.addEventListener('click', async ()=>{
   socket.binaryType='arraybuffer';
 
   socket.onopen=async()=>{
-    if(!active) { socket.close(); return; } // Prevent race condition if stopped immediately
+    if(!active) { socket.close(); return; }
     dot.className='dot on'; stxt.textContent='Listening…';
     timing.textContent = '—';
     sendConfig();
@@ -352,40 +295,51 @@ startBtn.addEventListener('click', async ()=>{
         if(msg.type==='subtitle'){
           srcTxt.textContent=msg.source; srcTxt.classList.remove('empty');
           tgtTxt.textContent=msg.translated; tgtTxt.classList.remove('empty');
+          
           if(msg.timing && typeof msg.timing.translate_ms==='number'){
-            timing.textContent = `Groq ${Math.round(msg.timing.translate_ms)}ms`;
+            timing.textContent = `Groq Translation Time: ${Math.round(msg.timing.translate_ms)}ms`;
           }
-        }
-        if(msg.type==='timing' && msg.timing){
-          const t = msg.timing;
-          const parts = [];
-          if(typeof t.translate_ms==='number') parts.push(`Groq ${Math.round(t.translate_ms)}ms`);
-          if(typeof t.tts_ms==='number') parts.push(`TTS ${Math.round(t.tts_ms)}ms`);
-          if(typeof t.total_ms==='number') parts.push(`Total ${Math.round(t.total_ms)}ms`);
-          if(parts.length) timing.textContent = parts.join(' · ');
-        }
-        if(msg.type==='audio_start'){
-          currentUtter = { mime: msg.mime || 'audio/mpeg', chunks: [], ready: false };
-          utterQueue.push(currentUtter);
-        }
-        if(msg.type==='audio_end'){
-          markUtterReady();
+
+          // --- NATIVE BROWSER SPEECH SYNTHESIS ---
+          // Cancel previous ongoing speech so it doesn't overlap
+          window.speechSynthesis.cancel(); 
+
+          const utter = new SpeechSynthesisUtterance(msg.translated);
+          const langCodes = { 
+              "Spanish": "es-ES", "French": "fr-FR", "German": "de-DE", 
+              "Japanese": "ja-JP", "Hindi": "hi-IN", "Malayalam": "ml-IN", "English": "en-US" 
+          };
+          utter.lang = langCodes[tgt.value] || "en-US";
+
+          // UI updates tied to the browser's voice state
+          utter.onstart = () => {
+              if(!active) return;
+              wave.classList.add('on');
+              dot.className = 'dot speak';
+              stxt.textContent = 'Speaking…';
+          };
+
+          utter.onend = () => {
+              wave.classList.remove('on');
+              if(active) {
+                  dot.className = 'dot on';
+                  stxt.textContent = 'Listening…';
+              }
+          };
+
+          window.speechSynthesis.speak(utter);
+          // ----------------------------------------
         }
       }catch(_){}
       return;
-    }
-    if(event.data instanceof ArrayBuffer){
-      enqueueChunk(event.data);
     }
   };
 
   socket.onclose=()=>{
     dot.className='dot'; stxt.textContent='Disconnected';
-    utterQueue.length = 0;
-    currentUtter = null;
-    playingUtter = false;
     active=false; startBtn.classList.remove('active');
     btnTxt.textContent='Start Translation Session';
+    wave.classList.remove('on');
   };
   socket.onerror=()=>{ stxt.textContent='Cannot connect — is server running?'; };
 });
