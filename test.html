@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VoiceBridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --gold:#C5973A; --gold-glow:rgba(197,151,58,.15);
+  --bg:#F5F4F0; --card:#fff; --card2:#F0EFE9;
+  --border:#E4E2DA; --txt:#18170F; --txt2:#6A6860; --txt3:#B0ADA5;
+  --green:#3DAA72; --red:#D9534F; --r:.2s cubic-bezier(.4,0,.2,1);
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#0F0E0C; --card:#1A1917; --card2:#222019;
+  --border:#2C2A24; --txt:#F0EDE4; --txt2:#948F84; --txt3:#504D46;
+  --red:#E06666;
+}}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:32px 16px;gap:18px;
+}
+.wrap{width:100%;max-width:640px;display:flex;flex-direction:column;gap:16px;}
+
+.logo{text-align:center;}
+.logo h1{font-family:'Playfair Display',serif;font-weight:600;
+  font-size:clamp(28px,5vw,42px);letter-spacing:-.5px;}
+.logo h1 em{font-style:italic;color:var(--gold);font-weight:400;}
+.logo p{margin-top:4px;font-size:11px;font-weight:500;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--txt2);}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  transition:border-color var(--r),box-shadow var(--r);}
+.card:hover{border-color:var(--gold);
+  box-shadow:0 0 0 1px var(--gold-glow),0 8px 32px rgba(0,0,0,.07);}
+.card-body{padding:24px 26px 20px;}
+
+.lang-row{display:grid;grid-template-columns:1fr 42px 1fr;align-items:end;gap:10px;}
+.lgroup{display:flex;flex-direction:column;gap:5px;}
+.llabel{font-size:10px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--txt2);}
+select{
+  width:100%;padding:10px 30px 10px 12px;font-family:'DM Sans',sans-serif;
+  font-size:14px;font-weight:500;color:var(--txt);background:var(--card2);
+  border:1.5px solid var(--border);border-radius:10px;outline:none;
+  cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23888' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 11px center;
+  transition:border-color var(--r),box-shadow var(--r);
+}
+select:hover,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-glow);}
+.swap{
+  display:flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:50%;background:var(--card2);
+  border:1.5px solid var(--border);color:var(--txt2);font-size:16px;
+  cursor:pointer;transition:all var(--r);align-self:flex-end;
+}
+.swap:hover{border-color:var(--gold);color:var(--gold);
+  background:var(--gold-glow);transform:rotate(180deg);}
+
+.hr{height:1px;background:var(--border);margin:18px 0;}
+
+.btn{
+  width:100%;padding:14px;font-family:'DM Sans',sans-serif;font-size:14px;
+  font-weight:500;letter-spacing:.03em;border:none;border-radius:10px;
+  cursor:pointer;position:relative;overflow:hidden;
+  background:var(--txt);color:var(--bg);
+  transition:transform var(--r),box-shadow var(--r);
+}
+.btn::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,var(--gold),#E8C060);
+  opacity:0;transition:opacity var(--r);}
+.btn:hover::before{opacity:1;}
+.btn:hover{color:#111;transform:translateY(-1px);
+  box-shadow:0 6px 24px rgba(197,151,58,.28);}
+.btn span{position:relative;z-index:1;}
+.btn.active{background:linear-gradient(135deg,var(--red),#f57a76);color:#fff;}
+.btn.active::before{opacity:0;}
+.btn.active:hover{box-shadow:0 6px 24px rgba(217,83,79,.28);}
+
+.status-row{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border);
+  flex-shrink:0;transition:background var(--r);}
+.dot.on{background:var(--green);animation:pg 1.4s ease-in-out infinite;}
+.dot.speak{background:var(--gold);animation:pa 1.4s ease-in-out infinite;}
+@keyframes pg{0%{box-shadow:0 0 0 0 rgba(61,170,114,.4)}
+  70%{box-shadow:0 0 0 8px rgba(61,170,114,0)}
+  100%{box-shadow:0 0 0 0 rgba(61,170,114,0)}}
+@keyframes pa{0%{box-shadow:0 0 0 0 rgba(197,151,58,.4)}
+  70%{box-shadow:0 0 0 8px rgba(197,151,58,0)}
+  100%{box-shadow:0 0 0 0 rgba(197,151,58,0)}}
+.stxt{font-size:12px;color:var(--txt2);}
+
+.sub{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  overflow:hidden;transition:border-color var(--r);}
+.sub:hover{border-color:var(--gold);}
+.sub-cols{display:grid;grid-template-columns:1fr 1px 1fr;}
+.sub-pane{padding:20px 22px;min-height:110px;}
+.sub-lang{font-size:10px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--txt2);margin-bottom:8px;}
+.sub-text{font-family:'Playfair Display',serif;font-style:italic;
+  font-size:17px;line-height:1.6;color:var(--txt);}
+.sub-text.empty{color:var(--txt3);font-size:15px;}
+.sub-div{background:var(--border);}
+
+.wave{height:34px;border-top:1px solid var(--border);background:var(--card2);
+  display:flex;align-items:center;justify-content:center;gap:3px;padding:0 20px;}
+.wb{width:3px;border-radius:2px;background:var(--border);height:4px;transition:background .3s;}
+.wave.on .wb{background:var(--gold);
+  animation:wv var(--d,.7s) ease-in-out infinite alternate;}
+@keyframes wv{from{height:3px}to{height:var(--h,16px)}}
+
+.foot{font-size:11px;color:var(--txt3);letter-spacing:.04em;}
+
+@media(max-width:480px){
+  .sub-cols{grid-template-columns:1fr;}
+  .sub-div{height:1px;width:100%;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="logo">
+    <h1>Voice<em>Bridge</em></h1>
+    <p>Real-time AI voice translation</p>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="lang-row">
+        <div class="lgroup">
+          <span class="llabel">Speak in</span>
+          <select id="src">
+            <option value="English">🇬🇧 English</option>
+            <option value="Spanish">🇪🇸 Spanish</option>
+            <option value="French">🇫🇷 French</option>
+            <option value="German">🇩🇪 German</option>
+            <option value="Japanese">🇯🇵 Japanese</option>
+            <option value="Hindi">🇮🇳 Hindi</option>
+            <option value="Malayalam">🇮🇳 Malayalam</option>
+          </select>
+        </div>
+        <button class="swap" id="swapBtn">⇄</button>
+        <div class="lgroup">
+          <span class="llabel">Translate to</span>
+          <select id="tgt">
+            <option value="Spanish">🇪🇸 Spanish</option>
+            <option value="English">🇬🇧 English</option>
+            <option value="French">🇫🇷 French</option>
+            <option value="German">🇩🇪 German</option>
+            <option value="Japanese">🇯🇵 Japanese</option>
+            <option value="Hindi">🇮🇳 Hindi</option>
+            <option value="Malayalam">🇮🇳 Malayalam</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <button class="btn" id="startBtn">
+        <span id="btnTxt">Start Translation Session</span>
+      </button>
+
+      <div class="status-row">
+        <div class="dot" id="dot"></div>
+        <span class="stxt" id="stxt">Select languages and press Start</span>
+      </div>
+      <div class="status-row" style="margin-top:6px">
+        <span class="stxt" id="timing" style="opacity:.85">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sub">
+    <div class="sub-cols">
+      <div class="sub-pane">
+        <div class="sub-lang" id="srcLbl">English</div>
+        <div class="sub-text empty" id="srcTxt">Your speech will appear here…</div>
+      </div>
+      <div class="sub-div"></div>
+      <div class="sub-pane">
+        <div class="sub-lang" id="tgtLbl">Spanish</div>
+        <div class="sub-text empty" id="tgtTxt">Translation will appear here…</div>
+      </div>
+    </div>
+    <div class="wave" id="wave"></div>
+  </div>
+
+  <div class="foot">Deepgram · Groq · ElevenLabs</div>
+</div>
+
+<script>
+const wave = document.getElementById('wave');
+for(let i=0;i<28;i++){
+  const b=document.createElement('div'); b.className='wb';
+  b.style.cssText=`--h:${(Math.random()*14+4).toFixed(1)}px;--d:${(Math.random()*.5+.4).toFixed(2)}s;animation-delay:${(Math.random()*.3).toFixed(2)}s`;
+  wave.appendChild(b);
+}
+
+const src     = document.getElementById('src');
+const tgt     = document.getElementById('tgt');
+const swapBtn = document.getElementById('swapBtn');
+const startBtn= document.getElementById('startBtn');
+const btnTxt  = document.getElementById('btnTxt');
+const dot     = document.getElementById('dot');
+const stxt    = document.getElementById('stxt');
+const timing  = document.getElementById('timing');
+const srcLbl  = document.getElementById('srcLbl');
+const tgtLbl  = document.getElementById('tgtLbl');
+const srcTxt  = document.getElementById('srcTxt');
+const tgtTxt  = document.getElementById('tgtTxt');
+
+let socket, mediaRecorder, active=false;
+
+const utterQueue = [];
+let currentUtter = null;
+let playingUtter = false;
+
+function enqueueChunk(chunk){
+  if(!currentUtter) return;
+  currentUtter.chunks.push(chunk);
+}
+
+function markUtterReady(){
+  if(currentUtter){
+    currentUtter.ready = true;
+    currentUtter = null;
+  }
+  playNextUtter();
+}
+
+function playNextUtter(){
+  if(playingUtter) return;
+  if(!utterQueue.length) return;
+  const next = utterQueue[0];
+  if(!next.ready || !next.chunks.length) return;
+
+  const blob = new Blob(next.chunks, { type: next.mime || 'audio/mpeg' });
+  const url  = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+
+  playingUtter = true;
+  dot.className='dot speak'; stxt.textContent='Speaking…'; wave.classList.add('on');
+
+  audio.onended = () => {
+    URL.revokeObjectURL(url);
+    utterQueue.shift();
+    playingUtter = false;
+    if(utterQueue.length){
+      playNextUtter();
+    } else {
+      wave.classList.remove('on');
+      if(active) {
+        dot.className='dot on'; stxt.textContent='Listening…';
+      } else {
+        dot.className='dot'; stxt.textContent='Session stopped';
+      }
+    }
+  };
+
+  audio.play().catch(err=>{
+    console.error(err);
+    URL.revokeObjectURL(url);
+    utterQueue.shift();
+    playingUtter = false;
+  });
+}
+
+function updateLabels(){ srcLbl.textContent=src.value; tgtLbl.textContent=tgt.value; }
+function sendConfig(){
+  if(socket && socket.readyState===WebSocket.OPEN)
+    socket.send(JSON.stringify({
+      type:'config',
+      targetLang:tgt.value,
+      sourceLang:src.value
+    }));
+}
+
+swapBtn.addEventListener('click',()=>{
+  [src.value,tgt.value]=[tgt.value,src.value];
+  updateLabels(); sendConfig();
+});
+tgt.addEventListener('change',()=>{ updateLabels(); sendConfig(); });
+src.addEventListener('change',()=>{ updateLabels(); });
+
+startBtn.addEventListener('click', async ()=>{
+  // If session is already active, STOP it.
+  if(active) {
+    active = false;
+    startBtn.classList.remove('active');
+    btnTxt.textContent = 'Start Translation Session';
+    dot.className = 'dot';
+    stxt.textContent = 'Session stopped';
+    wave.classList.remove('on');
+    
+    if(socket && socket.readyState === WebSocket.OPEN) {
+      socket.close();
+    }
+    
+    if(mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+    
+    utterQueue.length = 0;
+    currentUtter = null;
+    playingUtter = false;
+    return;
+  }
+
+  // START Session
+  active=true;
+  startBtn.classList.add('active');
+  btnTxt.textContent='Stop Translation Session';
+  updateLabels();
+
+  // 🛑 PASTE YOUR RENDER URL HERE (Make sure it starts with wss://) 🛑
+  socket = new WebSocket('wss://your-render-app-url.onrender.com');
+  socket.binaryType='arraybuffer';
+
+  socket.onopen=async()=>{
+    if(!active) { socket.close(); return; } // Prevent race condition if stopped immediately
+    dot.className='dot on'; stxt.textContent='Listening…';
+    timing.textContent = '—';
+    sendConfig();
+    try {
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ?'audio/webm;codecs=opus':'audio/webm';
+      mediaRecorder=new MediaRecorder(stream,{mimeType:mime});
+      mediaRecorder.ondataavailable=e=>{
+        if(e.data.size>0 && socket.readyState===WebSocket.OPEN) socket.send(e.data);
+      };
+      mediaRecorder.start(100);
+    } catch(err){
+      dot.className='dot'; stxt.textContent='Mic access denied';
+      active = false;
+      startBtn.classList.remove('active');
+      btnTxt.textContent = 'Start Translation Session';
+    }
+  };
+
+  socket.onmessage=event=>{
+    if(typeof event.data==='string'){
+      try{
+        const msg=JSON.parse(event.data);
+        if(msg.type==='subtitle'){
+          srcTxt.textContent=msg.source; srcTxt.classList.remove('empty');
+          tgtTxt.textContent=msg.translated; tgtTxt.classList.remove('empty');
+          if(msg.timing && typeof msg.timing.translate_ms==='number'){
+            timing.textContent = `Groq ${Math.round(msg.timing.translate_ms)}ms`;
+          }
+        }
+        if(msg.type==='timing' && msg.timing){
+          const t = msg.timing;
+          const parts = [];
+          if(typeof t.translate_ms==='number') parts.push(`Groq ${Math.round(t.translate_ms)}ms`);
+          if(typeof t.tts_ms==='number') parts.push(`TTS ${Math.round(t.tts_ms)}ms`);
+          if(typeof t.total_ms==='number') parts.push(`Total ${Math.round(t.total_ms)}ms`);
+          if(parts.length) timing.textContent = parts.join(' · ');
+        }
+        if(msg.type==='audio_start'){
+          currentUtter = { mime: msg.mime || 'audio/mpeg', chunks: [], ready: false };
+          utterQueue.push(currentUtter);
+        }
+        if(msg.type==='audio_end'){
+          markUtterReady();
+        }
+      }catch(_){}
+      return;
+    }
+    if(event.data instanceof ArrayBuffer){
+      enqueueChunk(event.data);
+    }
+  };
+
+  socket.onclose=()=>{
+    dot.className='dot'; stxt.textContent='Disconnected';
+    utterQueue.length = 0;
+    currentUtter = null;
+    playingUtter = false;
+    active=false; startBtn.classList.remove('active');
+    btnTxt.textContent='Start Translation Session';
+  };
+  socket.onerror=()=>{ stxt.textContent='Cannot connect — is server running?'; };
+});
+</script>
+</body>
+</html>
