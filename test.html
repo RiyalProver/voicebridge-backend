@@ -232,7 +232,7 @@ swapBtn.addEventListener('click',()=>{
   updateLabels(); sendConfig();
 });
 tgt.addEventListener('change',()=>{ updateLabels(); sendConfig(); });
-src.addEventListener('change',()=>{ updateLabels(); });
+src.addEventListener('change',()=>{ updateLabels(); sendConfig(); }); // FIXED: Added sendConfig() to handle dynamic listening
 
 startBtn.addEventListener('click', async ()=>{
   // Stop Session
